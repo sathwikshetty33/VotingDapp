@@ -65,7 +65,7 @@ class VotingContractHandler:
             # Set up transaction parameters with user's address as msg.sender
             tx_hash = self.contract.functions.voterRegister(
                 name, age, gender
-            ).transact(user_address)
+            ).transact({'from' : user_address})
             tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
             return {
@@ -80,7 +80,8 @@ class VotingContractHandler:
         try:
             if not isinstance(candidate_id, int) or candidate_id < 0:
                 raise ValueError("Invalid candidate ID")
-            tx_hash = self.contract.functions.Vote(candidate_id).transact({'from': user_address})
+            
+            tx_hash = self.contract.functions.vote(candidate_id).transact({'from': user_address})
             tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
             return {
                 'success': True,
@@ -90,8 +91,60 @@ class VotingContractHandler:
             logger.error(f"Voting Error: {e}")
             return {'success': False, 'error': str(e)}
 
+    def get_voting_status(self):
+        try:
+            # Assuming your contract has a method to check voting status
+            status = self.contract.functions.votingOpen().call()
+            return {'success': True, 'status': status}
+        except Exception as e:
+            logger.error(f"Error checking voting status: {e}")
+            return {'success': False, 'error': str(e)}
+    def get_election_result(self):
+        try:
+            # Find the candidate with the most votes
+            candidate_count = self.contract.functions.candidateCount().call()
+            max_votes = 0
+            winner = None
 
-# Create contract handler instance
+            for i in range(1, candidate_count + 1):
+                candidate_info = self.contract.functions.candidates(i).call()
+                if candidate_info[4] > max_votes:
+                    max_votes = candidate_info[4]
+                    winner = {
+                        'id': i,
+                        'name': candidate_info[0],
+                        'party': candidate_info[1],
+                        'votes': candidate_info[4]
+                    }
+
+            return {
+                'success': True, 
+                'winner': winner if winner else None
+            }
+        except Exception as e:
+            logger.error(f"Error fetching election result: {e}")
+            return {'success': False, 'error': str(e)}
+    def get_candidate(self):
+        try:
+            # Fetch candidates from the contract
+            candidate_count = self.contract.functions.candidateList().call()
+            candidates = []
+            
+            for i in range(1, candidate_count + 1):
+                candidate_info = self.contract.functions.candidates(i).call()
+                candidates.append({
+                    'id': i,
+                    'name': str(candidate_info[0]),  # Ensure string conversion
+                    'party': str(candidate_info[1]),
+                    'age': int(candidate_info[2]),
+                    'gender': str(candidate_info[3]),
+                    'votes': int(candidate_info[4])
+                })
+            
+            return {'success': True, 'candidates': candidates}
+        except Exception as e:
+            logger.error(f"Error getting candidates: {e}")
+            return {'success': False, 'error': str(e)}
 contract_handler = VotingContractHandler()
 
 
@@ -154,7 +207,7 @@ def cast_vote(request):
 
 @require_http_methods(["GET"])
 def get_candidates(request):
-    candidates = contract_handler.get_candidates()
+    candidates = contract_handler.get_candidate()
     return JsonResponse({'candidates': candidates})
 
 
@@ -166,10 +219,16 @@ def voting_status(request):
 
 @require_http_methods(["GET"])
 def get_result(request):
-    winner = contract_handler.get_result()
+    winner = contract_handler.get_election_result()
     return JsonResponse({'winner': winner})
 
+@require_http_methods(["GET"])
 def logins(request):
     return render(request, 'login.html')
+@require_http_methods(["GET"])
 def voting(request):
     return render(request, 'voting.html')
+def canreg(request):
+    return render(request, 'can.html')
+def voter(request):
+    return render(request, 'voter.html')

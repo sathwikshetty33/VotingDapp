@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Voting System - Voter Registration</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+        input, select, button {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .navigation {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .navigation a {
+            text-decoration: none;
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin: 0 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Blockchain Voting System</h1>
+
+        <!-- Voter Registration Section -->
+        <div id="voterRegistration">
+            <h2>Voter Registration</h2>
+            <form id="voterRegForm">
+                <input type="text" name="name" placeholder="Full Name" required>
+                <input type="number" name="age" placeholder="Age" min="18" required>
+                <select name="gender" required>
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                </select>
+                <button type="submit">Register as Voter</button>
+            </form>
+        </div>
+
+        <div class="navigation">
+            <a href="{% url 'canreg' %}">Candidate Registration</a>
+            <a href="{% url 'voting' %}">View Candidates</a>
+        </div>
+    </div>
+
+    <script>
+    document.getElementById('voterRegForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = {
+            name: formData.get('name'),
+            age: parseInt(formData.get('age')),
+            gender: formData.get('gender')
+        };
+
+        try {
+            const response = await fetch('/register-voter/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            alert(result.success ? 'Voter registered successfully!' : `Error: ${result.error}`);
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Registration failed');
+        }
+    });
+    </script>
+</body>
+</html>

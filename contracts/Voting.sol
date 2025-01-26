@@ -31,7 +31,7 @@ contract Voting{
     bool stopVoting;
     constructor(){
         eletionCommission=msg.sender;
-        startTime = block.timestamp;
+        startTime = block.timestamp+100;
         endTime = block.timestamp + 600;
     }
     modifier onlyCommision(){
@@ -114,7 +114,7 @@ contract Voting{
         }
         return 0;
     }
-    function Result() external onlyCommision(){
+    function Result() external {
         require(block.timestamp>=endTime," voting period not over");
         uint max=0;
         for(uint i=1;i<nextCandidateId;i++)
