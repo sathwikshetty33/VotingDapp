@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login with MetaMask</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background-color: #f5f5f5;
+    }
+    .container {
+      width: 300px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      font-size: 24px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      font-size: 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .message {
+      margin-top: 20px;
+      text-align: center;
+      color: #333;
+    }
+    #continueButton {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Login / Signup</h1>
+    <button id="connectButton">Connect MetaMask</button>
+    <button id="continueButton">Continue to Voting</button>
+    <div class="message" id="message"></div>
+  </div>
+
+  <script>
+    const connectButton = document.getElementById('connectButton');
+    const continueButton = document.getElementById('continueButton');
+    const messageDiv = document.getElementById('message');
+
+    async function connectMetaMask() {
+      if (typeof window.ethereum !== 'undefined') {
+        try {
+          // Request account access from MetaMask
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          const account = accounts[0];
+
+          // Set cookie with account address
+          document.cookie = `user_account=${account}; path=/; SameSite=Strict`;
+
+          // Display connected account
+          messageDiv.textContent = `Connected account: ${account}`;
+          console.log("Account connected:", account);
+
+          // Show continue button
+          connectButton.style.display = 'none';
+          continueButton.style.display = 'block';
+
+        } catch (error) {
+          console.error("MetaMask connection error:", error);
+          alert("Failed to connect. Please try again.");
+        }
+      } else {
+        alert("MetaMask is not installed. Please install it to use this feature.");
+      }
+    }
+
+    // Redirect to voting page
+    function continueToVoting() {
+      window.location.href = '/voting/';
+    }
+
+    connectButton.addEventListener('click', connectMetaMask);
+    continueButton.addEventListener('click', continueToVoting);
+
+    // Check if a user is already logged in
+    window.onload = () => {
+      const cookies = document.cookie.split('; ');
+      const accountCookie = cookies.find(row => row.startsWith('user_account='));
+
+      if (accountCookie) {
+        const account = accountCookie.split('=')[1];
+        messageDiv.textContent = `Welcome back! Connected account: ${account}`;
+        connectButton.style.display = 'none';
+        continueButton.style.display = 'block';
+      }
+    };
+  </script>
+</body>
+</html>

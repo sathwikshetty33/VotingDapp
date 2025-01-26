@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Voting System</title>
+    <style>
+      body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 20px;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+h1 {
+    text-align: center;
+    color: #333;
+}
+
+.section {
+    margin-bottom: 30px;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+}
+
+input, select, button {
+    margin: 10px 0;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+#candidateList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.candidate-card {
+    border: 1px solid #ddd;
+    padding: 15px;
+    text-align: center;
+    background-color: white;
+    border-radius: 5px;
+}
+
+.candidate-card button {
+    width: 100%;
+    margin-top: 10px;
+}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Blockchain Voting System</h1>
+
+        <!-- Voter Registration Section -->
+        <div class="section" id="voterRegistration">
+            <h2>Voter Registration</h2>
+            <form id="voterRegForm">
+                <input type="text" name="name" placeholder="Full Name" required>
+                <input type="number" name="age" placeholder="Age" min="18" required>
+                <select name="gender" required>
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                </select>
+                <button type="submit">Register as Voter</button>
+            </form>
+        </div>
+
+        <!-- Candidate Registration Section -->
+        <div class="section" id="candidateRegistration">
+            <h2>Candidate Registration</h2>
+            <form id="candidateRegForm">
+                <input type="text" name="name" placeholder="Candidate Name" required>
+                <input type="text" name="party" placeholder="Political Party" required>
+                <input type="number" name="age" placeholder="Age" min="18" required>
+                <select name="gender" required>
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                </select>
+                <button type="submit">Register as Candidate</button>
+            </form>
+        </div>
+
+        <!-- Voting Section -->
+        <div class="section" id="votingSection">
+            <h2>Cast Your Vote</h2>
+            <div id="candidateList"></div>
+        </div>
+
+        <!-- Voting Status and Results -->
+        <div class="section" id="votingStatus">
+            <h2>Voting Status</h2>
+            <p id="currentStatus">Loading status...</p>
+        </div>
+
+        <div class="section" id="electionResults">
+            <h2>Election Results</h2>
+            <div id="resultDisplay">No results available</div>
+        </div>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+    const voterRegForm = document.getElementById('voterRegForm');
+    const candidateRegForm = document.getElementById('candidateRegForm');
+    const candidateList = document.getElementById('candidateList');
+    const votingStatus = document.getElementById('currentStatus');
+    const resultDisplay = document.getElementById('resultDisplay');
+
+    // Voter Registration
+    voterRegForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(voterRegForm);
+        const data = {
+            name: formData.get('name'),
+            age: parseInt(formData.get('age')),
+            gender: formData.get('gender')
+
+        };
+
+        try {
+            const response = await fetch('/register-voter/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            alert(result.success ? 'Voter registered successfully!' : `Error: ${result.error}`);
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Registration failed');
+        }
+    });
+
+    // Candidate Registration
+    candidateRegForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(candidateRegForm);
+        const data = {
+            name: formData.get('name'),
+            party: formData.get('party'),
+            age: parseInt(formData.get('age')),
+            gender: formData.get('gender')
+        };
+
+        try {
+            const response = await fetch('/register-candidate/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            alert(result.success ? 'Candidate registered successfully!' : `Error: ${result.error}`);
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Registration failed');
+        }
+    });
+
+    // Fetch and Display Candidates
+    async function fetchCandidates() {
+        try {
+            const response = await fetch('/get-can/');
+            const data = await response.json();
+            candidateList.innerHTML = data.candidates.map(candidate => `
+                <div class="candidate-card">
+                    <h3>${candidate.name}</h3>
+                    <p>Party: ${candidate.party}</p>
+                    <p>Age: ${candidate.age}</p>
+                    <p>Gender: ${candidate.gender}</p>
+                    <p>Current Votes: ${candidate.votes}</p>
+                    <button onclick="castVote(${candidate.id})">Vote</button>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error fetching candidates:', error);
+        }
+    }
+
+    // Cast Vote
+    window.castVote = async (candidateId) => {
+        try {
+            const response = await fetch('/vote/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ candidate_id: candidateId })
+            });
+            const result = await response.json();
+            alert(result.success ? 'Vote cast successfully!' : `Error: ${result.error}`);
+            fetchCandidates(); // Refresh candidate list
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Voting failed');
+        }
+    };
+
+    // Check Voting Status
+    async function checkVotingStatus() {
+        try {
+            const response = await fetch('/voting_status/');
+            const data = await response.json();
+            votingStatus.textContent = data.status ?
+                'Voting is currently OPEN' : 'Voting is currently CLOSED';
+        } catch (error) {
+            console.error('Error checking voting status:', error);
+            votingStatus.textContent = 'Unable to fetch voting status';
+        }
+    }
+
+    // Fetch Election Results
+    async function fetchElectionResults() {
+        try {
+            const response = await fetch('/result/');
+            const data = await response.json();
+            if (data.winner && !data.winner.error) {
+                resultDisplay.innerHTML = `
+                    <h3>Winner: ${data.winner.name}</h3>
+                    <p>Party: ${data.winner.party}</p>
+                    <p>Total Votes: ${data.winner.votes}</p>
+                `;
+            } else {
+                resultDisplay.textContent = 'No winner declared yet';
+            }
+        } catch (error) {
+            console.error('Error fetching results:', error);
+            resultDisplay.textContent = 'Unable to fetch results';
+        }
+    }
+
+    // Initial page load
+    fetchCandidates();
+    checkVotingStatus();
+    fetchElectionResults();
+});
+    </script>
+</body>
+</html>

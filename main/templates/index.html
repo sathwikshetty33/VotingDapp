@@ -1,0 +1,135 @@
+# index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Blockchain Voting System</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <section id="candidate-registration">
+            <h2>Candidate Registration</h2>
+            <form id="candidate-form">
+                <input type="text" name="name" placeholder="Name" required>
+                <input type="text" name="party" placeholder="Party" required>
+                <input type="number" name="age" placeholder="Age" required>
+                <select name="gender" required>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                </select>
+                <button type="submit">Register</button>
+            </form>
+        </section>
+
+        <section id="voter-registration">
+            <h2>Voter Registration</h2>
+            <form id="voter-form">
+                <input type="text" name="name" placeholder="Name" required>
+                <input type="number" name="age" placeholder="Age" required>
+                <select name="gender" required>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                </select>
+                <button type="submit">Register</button>
+            </form>
+        </section>
+
+        <section id="voting">
+            <h2>Cast Your Vote</h2>
+            <div id="candidate-list"></div>
+        </section>
+
+        <section id="results">
+            <h2>Election Results</h2>
+            <div id="result-display"></div>
+        </section>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
+
+# styles.css
+body {
+    font-family: Arial, sans-serif;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+section {
+    margin-bottom: 20px;
+    padding: 15px;
+    border: 1px solid #ddd;
+}
+
+input, select, button {
+    margin: 10px 0;
+    padding: 5px;
+    width: 100%;
+}
+
+# script.js
+const contractAddress = 'YOUR_CONTRACT_ADDRESS';
+const contractABI = []; // Your contract ABI
+
+let contract;
+let signer;
+
+async function connectWallet() {
+    if (window.ethereum) {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+        contract = new ethers.Contract(contractAddress, contractABI, signer);
+    }
+}
+
+document.getElementById('candidate-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await connectWallet();
+    const formData = new FormData(e.target);
+    await contract.candidateRegister(
+        formData.get('name'),
+        formData.get('party'),
+        parseInt(formData.get('age')),
+        formData.get('gender')
+    );
+});
+
+document.getElementById('voter-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await connectWallet();
+    const formData = new FormData(e.target);
+    await contract.voterRegister(
+        formData.get('name'),
+        parseInt(formData.get('age')),
+        formData.get('gender')
+    );
+});
+
+async function loadCandidates() {
+    const candidates = await contract.candidateLists();
+    const candidateList = document.getElementById('candidate-list');
+    candidates.forEach(candidate => {
+        const candidateDiv = document.createElement('div');
+        candidateDiv.innerHTML = `
+            ${candidate.name} (${candidate.party}) 
+            <button onclick="castVote(${candidate.candidateId})">Vote</button>
+        `;
+        candidateList.appendChild(candidateDiv);
+    });
+}
+
+async function castVote(candidateId) {
+    await contract.Vote(candidateId);
+}
+
+async function getResults() {
+    await contract.Result();
+    const winner = await contract.winner();
+    document.getElementById('result-display').textContent = `Winner: ${winner}`;
+}
+
+window.addEventListener('load', connectWallet);
