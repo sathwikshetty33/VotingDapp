@@ -175,8 +175,7 @@ async function fetchCandidates() {
             try {
                 const response = await fetch('/voting-status/');
                 const data = await response.json();
-                votingStatus.textContent = data.status ?
-                    'Voting is currently OPEN' : 'Voting is currently CLOSED';
+                votingStatus.textContent = data.message;
             } catch (error) {
                 console.error('Error checking voting status:', error);
                 votingStatus.textContent = 'Unable to fetch voting status';

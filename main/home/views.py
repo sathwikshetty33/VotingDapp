@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -89,15 +90,6 @@ class VotingContractHandler:
             }
         except Exception as e:
             logger.error(f"Voting Error: {e}")
-            return {'success': False, 'error': str(e)}
-
-    def get_voting_status(self):
-        try:
-            # Assuming your contract has a method to check voting status
-            status = self.contract.functions.votingStatus().call()
-            return {'success': True, 'status': status}
-        except Exception as e:
-            logger.error(f"Error checking voting status: {e}")
             return {'success': False, 'error': str(e)}
     def get_election_result(self):
         try:
@@ -260,8 +252,31 @@ def get_candidates(request):
 
 @require_http_methods(["GET"])
 def voting_status(request):
-    status = contract_handler.get_voting_status()
-    return JsonResponse({'status': status})
+    try:
+        
+        current_time = int(time.time())
+        end_time = contract_handler.contract.functions.endTime().call()
+        stop_voting = contract_handler.contract.functions.stopVoting().call()
+        started = contract_handler.contract.functions.started().call()
+        if stop_voting:
+            message = "Voting has been stopped by admin"
+        elif not started:
+            message = "Voting has not started yet"
+        elif current_time >= end_time:
+            message = "Voting period has ended"
+        else:
+            message = "Voting is open"
+            
+        return JsonResponse({
+            'success': True,
+            'message': message
+        })
+    except Exception as e:
+        logger.error(f"Error checking voting status: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': 'Unable to check voting status'
+        })
 
 
 @require_http_methods(["GET"])
