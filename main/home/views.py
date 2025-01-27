@@ -78,10 +78,10 @@ class VotingContractHandler:
 
     def cast_vote(self, candidate_id, user_address):
         try:
-            if not isinstance(candidate_id, int) or candidate_id < 0:
+            if int(candidate_id) < 0:
                 raise ValueError("Invalid candidate ID")
-            
-            tx_hash = self.contract.functions.vote(candidate_id).transact({'from': user_address})
+            can = int(candidate_id)
+            tx_hash = self.contract.functions.Vote(can).transact({'from': user_address})
             tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
             return {
                 'success': True,
@@ -94,7 +94,7 @@ class VotingContractHandler:
     def get_voting_status(self):
         try:
             # Assuming your contract has a method to check voting status
-            status = self.contract.functions.votingOpen().call()
+            status = self.contract.functions.votingStatus().call()
             return {'success': True, 'status': status}
         except Exception as e:
             logger.error(f"Error checking voting status: {e}")
@@ -126,25 +126,39 @@ class VotingContractHandler:
             return {'success': False, 'error': str(e)}
     def get_candidate(self):
         try:
-            # Fetch candidates from the contract
-            candidate_count = self.contract.functions.candidateList().call()
+            # Fetch candidates directly as an array from the contract
+            candidates_data = self.contract.functions.candidateLists().call()
             candidates = []
             
-            for i in range(1, candidate_count + 1):
-                candidate_info = self.contract.functions.candidates(i).call()
-                candidates.append({
-                    'id': i,
-                    'name': str(candidate_info[0]),  # Ensure string conversion
-                    'party': str(candidate_info[1]),
-                    'age': int(candidate_info[2]),
-                    'gender': str(candidate_info[3]),
-                    'votes': int(candidate_info[4])
-                })
+            # Process each candidate from the returned array
+            for candidate_info in candidates_data:
+                try:
+                    # Add error checking for each field
+                    candidate = {
+                        'id': str(len(candidates) + 1),
+                        'name': str(candidate_info[0]) if candidate_info[0] else "Unknown",
+                        'party': str(candidate_info[1]) if candidate_info[1] else "Unknown",
+                        'age': int(candidate_info[2]) if candidate_info[2] else 0,
+                        'gender': str(candidate_info[3]) if candidate_info[3] else "Unknown",
+                        'votes': int(candidate_info[6])
+                    }
+                    candidates.append(candidate)
+                except (IndexError, TypeError) as e:
+                    logger.error(f"Error processing candidate data: {e}")
+                    continue
             
-            return {'success': True, 'candidates': candidates}
+            # Return in the exact format your frontend expects
+            return JsonResponse({
+                'success': True,
+                'candidates': candidates
+            })
         except Exception as e:
             logger.error(f"Error getting candidates: {e}")
-            return {'success': False, 'error': str(e)}
+            return JsonResponse({
+                'success': False,
+                'error': str(e),
+                'candidates': []  # Always include candidates key even if empty
+            })
 contract_handler = VotingContractHandler()
 
 
@@ -192,23 +206,56 @@ def register_voter(request):
 @require_http_methods(["POST"])
 def cast_vote(request):
     try:
+        # Parse the JSON data from request
         data = json.loads(request.body)
+        candidate_id = data.get('candidate_id')
+        
         user_address = Web3.to_checksum_address(request.COOKIES.get('user_account', ''))
+        if not user_address:
+            return JsonResponse({
+                'success': False,
+                'error': 'Please connect your wallet first'
+            })
+        result = contract_handler.cast_vote(candidate_id, user_address)
+        
+        if result['success']:
+            return JsonResponse({
+                'success': True,
+                'message': 'Vote cast successfully!',
+                'transaction_hash': result['transaction_hash']
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': result['error']
+            })
 
-        result = contract_handler.cast_vote(
-            data['candidate_id'],
-            user_address
-        )
-        return JsonResponse(result)
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
-    except KeyError as e:
-        return JsonResponse({'error': f'Missing key: {str(e)}'}, status=400)
+    except ValueError as e:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid input data'
+        })
+    except Exception as e:
+        logger.error(f"Error in cast_vote view: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
 
+
+@csrf_exempt
 @require_http_methods(["GET"])
 def get_candidates(request):
-    candidates = contract_handler.get_candidate()
-    return JsonResponse({'candidates': candidates})
+    try:
+        # Initialize your contract instance here
+        
+        return contract_handler.get_candidate()
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'candidates': []
+        })
 
 
 @require_http_methods(["GET"])

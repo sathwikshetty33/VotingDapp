@@ -89,42 +89,84 @@
         const votingStatus = document.getElementById('votingStatus');
 
         // Fetch and Display Candidates
-        async function fetchCandidates() {
-            try {
-                const response = await fetch('/get-can/');
-                const data = await response.json();
-                candidateList.innerHTML = data.candidates.map(candidate => `
-                    <div class="candidate-card">
-                        <h3>${candidate.name}</h3>
-                        <p>Party: ${candidate.party}</p>
-                        <p>Age: ${candidate.age}</p>
-                        <p>Gender: ${candidate.gender}</p>
-                        <p>Current Votes: ${candidate.votes}</p>
-                        <button onclick="castVote(${candidate.id})">Vote</button>
-                    </div>
-                `).join('');
-            } catch (error) {
-                console.error('Error fetching candidates:', error);
-                candidateList.innerHTML = '<p>Unable to load candidates</p>';
-            }
+        // Update your fetchCandidates function with better error handling
+async function fetchCandidates() {
+    try {
+        const response = await fetch('/get-can/');
+        const data = await response.json();
+        console.log('Received data:', data);  // Debug log
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to fetch candidates');
         }
+        
+        if (!Array.isArray(data.candidates)) {
+            throw new Error('Candidates data is not in the expected format');
+        }
+        
+        if (data.candidates.length === 0) {
+            candidateList.innerHTML = '<p>No candidates available</p>';
+            return;
+        }
+
+        candidateList.innerHTML = data.candidates.map(candidate => `
+            <div class="candidate-card">
+                <h3>${candidate.name || 'Unknown'}</h3>
+                <p>Party: ${candidate.party || 'Unknown'}</p>
+                <p>Age: ${candidate.age || 'N/A'}</p>
+                <p>Gender: ${candidate.gender || 'Unknown'}</p>
+                <p>Current Votes: ${candidate.votes || 0}</p>
+                <button onclick="castVote('${candidate.id}')">Vote</button>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error fetching candidates:', error);
+        candidateList.innerHTML = `<p>Error loading candidates: ${error.message}</p>`;
+    }
+}
 
         // Cast Vote
         window.castVote = async (candidateId) => {
             try {
+                // Check if wallet is connected
+                if (!ethereum.selectedAddress) {
+                    alert('Please connect your wallet first');
+                    return;
+                }
+        
                 const response = await fetch('/vote/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ candidate_id: candidateId })
+                    body: JSON.stringify({ 
+                        candidate_id: candidateId
+                    })
                 });
+        
                 const result = await response.json();
-                alert(result.success ? 'Vote cast successfully!' : `Error: ${result.error}`);
-                fetchCandidates(); // Refresh candidate list
+        
+                if (result.success) {
+                    alert(`Vote cast successfully! Transaction Hash: ${result.transaction_hash}`);
+                    // Refresh the candidate list to show updated votes
+                    fetchCandidates();
+                } else {
+                    // Handle specific error messages from the contract
+                    if (result.error.includes("You have not registered")) {
+                        alert("Error: You must register as a voter first.");
+                    } else if (result.error.includes("You have already Voted")) {
+                        alert("Error: You have already cast your vote.");
+                    } else if (result.error.includes("voting period over")) {
+                        alert("Error: Voting period has ended.");
+                    } else if (result.error.includes("Enter the correct Id")) {
+                        alert("Error: Invalid candidate ID.");
+                    } else {
+                        alert(`Error: ${result.error}`);
+                    }
+                }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Voting failed');
+                alert('Failed to cast vote. Please check your connection and try again.');
             }
         };
 
@@ -141,7 +183,6 @@
             }
         }
 
-        // Initial page load
         fetchCandidates();
         checkVotingStatus();
     });

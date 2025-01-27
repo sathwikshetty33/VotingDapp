@@ -7,7 +7,8 @@ urlpatterns = [
     path('vote/', views.cast_vote),
     path('results/', views.get_result),
     path('get-can/', views.get_candidates),
-    path('login/',views.logins),
+    path('voting-status/',views.voting_status),
+    path('',views.logins),
     path('voting/',views.voting,name='voting'),
     path('voter-reg/',views.voter,name='votereg'),
     path('canreg/',views.canreg,name='canreg')
