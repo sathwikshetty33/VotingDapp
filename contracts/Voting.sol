@@ -24,15 +24,14 @@ contract Voting{
     address public winner;
     uint nextVoterId=1;
     uint nextCandidateId=1;
-    uint startTime;
-    uint endTime;
+    uint public startTime;
+    uint public endTime;
     mapping(uint=> Voter) voterDetails;
     mapping(uint=> Candidate) candidateList;
-    bool stopVoting;
+    bool public stopVoting;
+    bool public started;
     constructor(){
         eletionCommission=msg.sender;
-        startTime = block.timestamp+100;
-        endTime = block.timestamp + 600;
     }
     modifier onlyCommision(){
         require(msg.sender==eletionCommission,"You are unautjorized");
@@ -41,9 +40,8 @@ contract Voting{
     function candidateRegister(string calldata name, string calldata party, uint age, string calldata gender ) external 
     {
         require(age>=18,"You are underage");
-        require(block.timestamp < startTime,"Voting already started cannot registered");
+        require(started==false || block.timestamp < startTime,"Voting already started");
         require(candidateVerification(msg.sender)==true,"You have already registered");
-        // require(nextCandidateId<3,"Already Filled");
         candidateList[nextCandidateId]=Candidate(name,party,age,gender,nextCandidateId,msg.sender,0);
         nextCandidateId++;
     }
@@ -91,14 +89,23 @@ contract Voting{
         }
         return can;
     }
-    function Vote(uint id) public {
-        require(voterVerification(msg.sender)==false,"You have not registered");
-        require(VoterId(msg.sender)!=0,"You have already Voted");
-        require(block.timestamp<endTime && stopVoting==false," voting period over");
-        require(id > 0 && id < nextVoterId,"Enter the correct Id");
-        voterDetails[VoterId(msg.sender)].voteCandidateId = id;
-        candidateList[id].votes++;
-    }
+   function Vote(uint id) public {
+    require(voterVerification(msg.sender) == false, "You have not registered");
+    
+    require(VoterId(msg.sender) != 0, "You have already voted");
+    
+    require(started, "Voting has not started");
+    require(block.timestamp >= startTime, "Voting period has not begun");
+    require(block.timestamp < endTime, "Voting period has ended");
+    require(!stopVoting, "Voting has been stopped");
+    
+    // Validate candidate ID
+    require(id > 0 && id < nextCandidateId, "Invalid candidate ID");
+    
+    // Record vote
+    voterDetails[VoterId(msg.sender)].voteCandidateId = id;
+    candidateList[id].votes++;
+}
     function VoterId(address ad) internal view returns(uint) {
         for(uint i=1;i<nextVoterId;i++)
         {
@@ -127,8 +134,10 @@ contract Voting{
         }
     }
     function voteTime(uint start,uint duration) external onlyCommision() {
-        startTime=start;
+        require(started==false,"Already started");
+        startTime=block.timestamp + start;
         endTime=startTime + duration;
+        started=true;
     }
     function votingStatus() view external returns(string memory){
             if(startTime==0){

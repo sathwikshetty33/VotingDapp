@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 import json
 import logging
 import time
@@ -15,10 +16,7 @@ logger = logging.getLogger(__name__)
 class VotingContractHandler:
     def __init__(self):
         try:
-            # Initialize Web3 connection
             self.w3 = Web3(Web3.HTTPProvider(settings.BLOCKCHAIN_URL))
-
-            # Validate Web3 connection
             if not self.w3.is_connected():
                 raise ConnectionError("Failed to connect to Ethereum network")
 
@@ -151,6 +149,31 @@ class VotingContractHandler:
                 'error': str(e),
                 'candidates': []  # Always include candidates key even if empty
             })
+    def voteTime(self, start_delay, duration, address):
+        start_delay_seconds = start_delay * 60
+        duration_seconds = duration * 60
+            
+            # Call the contract method
+        tx_hash = contract_handler.contract.functions.voteTime(
+            start_delay_seconds,
+            duration_seconds
+        ).transact({'from': address})
+        
+        # Wait for transaction receipt
+        tx_receipt = contract_handler.w3.eth.wait_for_transaction_receipt(tx_hash)
+        
+        # Calculate and format times for display
+        start_time = datetime.now() + timedelta(minutes=start_delay)
+        end_time = start_time + timedelta(minutes=duration)
+        
+        return ({
+            'success': True,
+            'message': 'Voting time set successfully',
+            'start_time': start_time.strftime('%Y-%m-%d %H:%M:%S'),
+            'end_time': end_time.strftime('%Y-%m-%d %H:%M:%S'),
+            'transaction_hash': tx_receipt.transactionHash.hex()
+        })
+    
 contract_handler = VotingContractHandler()
 
 
@@ -209,7 +232,10 @@ def cast_vote(request):
                 'error': 'Please connect your wallet first'
             })
         result = contract_handler.cast_vote(candidate_id, user_address)
-        
+        # Add this to your voting_status view to debug
+        start_time = contract_handler.contract.functions.startTime().call()
+        current_time = int(time.time())
+        print(f"Start time: {start_time}, Current time: {current_time}")
         if result['success']:
             return JsonResponse({
                 'success': True,
@@ -252,17 +278,19 @@ def get_candidates(request):
 
 @require_http_methods(["GET"])
 def voting_status(request):
-    try:
-        
+    try:    
         current_time = int(time.time())
         end_time = contract_handler.contract.functions.endTime().call()
         stop_voting = contract_handler.contract.functions.stopVoting().call()
         started = contract_handler.contract.functions.started().call()
+        startTime = contract_handler.contract.functions.startTime().call()
         if stop_voting:
             message = "Voting has been stopped by admin"
         elif not started:
             message = "Voting has not started yet"
-        elif current_time >= end_time:
+        elif started and current_time < startTime :
+             message = "Voting has not started yet"
+        elif started and current_time >= end_time:
             message = "Voting period has ended"
         else:
             message = "Voting is open"
@@ -294,3 +322,24 @@ def canreg(request):
     return render(request, 'can.html')
 def voter(request):
     return render(request, 'voter.html')
+@csrf_exempt
+def set_vote_time(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            start_delay = int(data.get('start_delay', 0))  # in minutes
+            duration = int(data.get('duration', 0))        # in minutes
+            
+            user_address = Web3.to_checksum_address(request.COOKIES.get('user_account', ''))
+            status = contract_handler.voteTime(start_delay, duration, user_address)
+            return JsonResponse({
+               'success': status
+           })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    
+    return render(request, 'admin.html')
